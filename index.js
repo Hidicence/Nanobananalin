@@ -69,7 +69,7 @@ async function generateImageWithPrompt(imageBuffer, text) {
       max_tokens: 1024,
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || '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'}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || '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'}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://line-bot-gemini-hngc.onrender.com',
         'X-Title': 'LINE Bot Image Generator'
