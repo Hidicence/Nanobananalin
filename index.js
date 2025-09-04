@@ -48,10 +48,10 @@ async function generateImageWithPrompt(imageBuffer, text) {
     const base64Image = imageBuffer.toString('base64');
     const content = [];
     
-    // 構建圖片生成的 prompt
+    // 構建明確的圖片生成 prompt
     const prompt = text && text.trim() 
-      ? `Based on the uploaded image, generate a new image with these modifications: ${text}`
-      : `Generate a new creative image inspired by the uploaded image`;
+      ? `Create a high-resolution image with these modifications: ${text}. Based on the reference image provided. Return only the generated image.`
+      : `Generate a new high-resolution artistic image inspired by the reference image provided. Return only the generated image.`;
     
     content.push({
       type: 'text',
@@ -85,9 +85,23 @@ async function generateImageWithPrompt(imageBuffer, text) {
 
     if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message) {
       const content = response.data.choices[0].message.content;
+      
+      console.log('API Response content:', content); // Debug log
+      
+      // 檢查是否有 base64 圖片數據
+      const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
+      if (base64Match) {
+        return base64Match[0]; // 回傳完整的 data URL
+      }
+      
       // 嘗試提取圖片 URL
       const imageUrlMatch = content.match(/https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)/i);
-      return imageUrlMatch ? imageUrlMatch[0] : content;
+      if (imageUrlMatch) {
+        return imageUrlMatch[0];
+      }
+      
+      // 如果都沒有，回傳原始內容供調試
+      return content;
     }
     return null;
   } catch (error) {
