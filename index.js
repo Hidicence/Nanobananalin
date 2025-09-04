@@ -30,17 +30,20 @@ async function getImageBuffer(messageId) {
   }
 }
 
-async function analyzeImageWithText(imageBuffer, text) {
+async function generateImageWithPrompt(imageBuffer, text) {
   try {
     const base64Image = imageBuffer.toString('base64');
     const content = [];
     
-    if (text && text.trim()) {
-      content.push({
-        type: 'text',
-        text: text
-      });
-    }
+    // 構建圖片生成的 prompt
+    const prompt = text && text.trim() 
+      ? `Based on the uploaded image, generate a new image with these modifications: ${text}`
+      : `Generate a new creative image inspired by the uploaded image`;
+    
+    content.push({
+      type: 'text',
+      text: prompt
+    });
     
     content.push({
       type: 'image_url',
@@ -50,7 +53,7 @@ async function analyzeImageWithText(imageBuffer, text) {
     });
 
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
-      model: 'google/gemini-2.5-flash-vision',
+      model: 'google/gemini-2.5-flash',
       messages: [
         {
           role: 'user',
@@ -62,17 +65,20 @@ async function analyzeImageWithText(imageBuffer, text) {
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'LINE Bot Image Analyzer'
+        'HTTP-Referer': 'https://line-bot-gemini-hngc.onrender.com',
+        'X-Title': 'LINE Bot Image Generator'
       }
     });
 
     if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message) {
-      return response.data.choices[0].message.content;
+      const content = response.data.choices[0].message.content;
+      // 嘗試提取圖片 URL
+      const imageUrlMatch = content.match(/https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)/i);
+      return imageUrlMatch ? imageUrlMatch[0] : content;
     }
     return null;
   } catch (error) {
-    console.error('Error analyzing image:', error.response?.data || error.message);
+    console.error('Error generating image:', error.response?.data || error.message);
     return null;
   }
 }
@@ -89,7 +95,7 @@ async function handleEvent(event) {
   if (event.message.type === 'image') {
     await client.replyMessage(event.replyToken, {
       type: 'text',
-      text: '收到圖片！請輸入您想要了解關於這張圖片的問題或描述，或直接傳送文字來分析圖片內容。'
+      text: '收到圖片！請輸入您想要的修改或創作描述，我會基於這張圖片生成新的圖片。例如：「改成卡通風格」、「加上彩虹背景」等。'
     });
     
     userStates.set(userId, {
@@ -107,24 +113,33 @@ async function handleEvent(event) {
     if (userState && (Date.now() - userState.timestamp < 300000)) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '正在分析圖片，請稍候...'
+        text: '正在基於您的圖片和描述生成新圖片，請稍候...'
       });
       
       const imageBuffer = await getImageBuffer(userState.imageId);
       if (imageBuffer) {
-        const analysis = await analyzeImageWithText(imageBuffer, text);
+        const result = await generateImageWithPrompt(imageBuffer, text);
         
-        if (analysis) {
+        if (result) {
           userStates.delete(userId);
-          return client.pushMessage(userId, {
-            type: 'text',
-            text: analysis
-          });
+          // 檢查是否為圖片 URL
+          if (result.startsWith('http') && /\.(jpg|jpeg|png|gif|webp)$/i.test(result)) {
+            return client.pushMessage(userId, {
+              type: 'image',
+              originalContentUrl: result,
+              previewImageUrl: result
+            });
+          } else {
+            return client.pushMessage(userId, {
+              type: 'text',
+              text: `生成結果：\n${result}`
+            });
+          }
         } else {
           userStates.delete(userId);
           return client.pushMessage(userId, {
             type: 'text',
-            text: '分析失敗，請重新上傳圖片或稍後再試。'
+            text: '圖片生成失敗，請重新上傳圖片或稍後再試。'
           });
         }
       } else {
@@ -137,7 +152,7 @@ async function handleEvent(event) {
     } else {
       return client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '使用方法：\n1. 傳送一張圖片\n2. 接著傳送文字描述您想了解的內容\n\n範例：上傳一張食物照片後，輸入「這是什麼料理？」或「分析這道菜的營養成分」'
+        text: '使用方法：\n1. 傳送一張圖片\n2. 接著傳送文字描述您想要生成的新圖片\n\n範例：\n• 上傳風景照後，輸入「把這個場景改成夜晚」\n• 上傳人像照後，輸入「改成卡通風格」\n• 上傳物品照後，輸入「加上彩虹背景」'
       });
     }
   }
