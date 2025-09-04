@@ -14,6 +14,8 @@
       "Read(/\\c\\Users\\User\\Desktop/**)",
       "Read(/C:\\Users\\User\\Desktop\\0904linebot/**)",
       "Read(/C:\\Users\\User\\Desktop\\0904linebot/**)",
+      "Read(/\\c\\Users\\User\\Desktop/**)",
+      "Read(/\\c\\Users\\User\\Desktop/**)",
       "Read(/\\c\\Users\\User\\Desktop/**)"
     ],
     "deny": [],

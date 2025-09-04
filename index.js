@@ -6,9 +6,15 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug: 檢查環境變數
+console.log('Environment variables loaded:');
+console.log('LINE_CHANNEL_ACCESS_TOKEN:', process.env.LINE_CHANNEL_ACCESS_TOKEN ? 'EXISTS' : 'MISSING');
+console.log('LINE_CHANNEL_SECRET:', process.env.LINE_CHANNEL_SECRET ? 'EXISTS' : 'MISSING');
+console.log('OPENROUTER_API_KEY:', process.env.OPENROUTER_API_KEY ? 'EXISTS' : 'MISSING');
+
 const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || 'An85TJApYto03tsem6zFllkaAhpHz6EJr9FzsT5Dghc0gYSnEIZKM072mxaqx7X/mzDrt0Kk+g1AC1p4GVz8U24wHxxsYIf8Tbadz97rCcovqWhQfvBAThHEzIUMoqHDN9gWWlwIJMor6wSJFGLFkgdB04t89/1O/w1cDnyilFU=',
+  channelSecret: process.env.LINE_CHANNEL_SECRET || 'f57d546317857b604efc7e255314db25',
 };
 
 const client = new Client(config);
@@ -63,7 +69,7 @@ async function generateImageWithPrompt(imageBuffer, text) {
       max_tokens: 1024,
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || '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'}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://line-bot-gemini-hngc.onrender.com',
         'X-Title': 'LINE Bot Image Generator'
