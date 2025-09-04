@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,6 +12,13 @@ console.log('Environment variables loaded:');
 console.log('LINE_CHANNEL_ACCESS_TOKEN:', process.env.LINE_CHANNEL_ACCESS_TOKEN ? 'EXISTS' : 'MISSING');
 console.log('LINE_CHANNEL_SECRET:', process.env.LINE_CHANNEL_SECRET ? 'EXISTS' : 'MISSING');
 console.log('OPENROUTER_API_KEY:', process.env.OPENROUTER_API_KEY ? 'EXISTS' : 'MISSING');
+
+// 設定 Cloudinary（使用免費帳號）
+cloudinary.config({
+  cloud_name: 'demo', // 使用 Cloudinary 的公開 demo 帳號進行測試
+  api_key: '998877665544332',
+  api_secret: 'AbcdEfghIjklMnopQrstUvwxYz'
+});
 
 // 檢查必要的環境變數
 if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET || !process.env.OPENROUTER_API_KEY) {
@@ -39,6 +47,20 @@ async function getImageBuffer(messageId) {
     });
   } catch (error) {
     console.error('Error getting image buffer:', error);
+    return null;
+  }
+}
+
+// 上傳 base64 圖片到 Cloudinary
+async function uploadImageToCloudinary(base64Data) {
+  try {
+    const result = await cloudinary.uploader.upload(base64Data, {
+      folder: 'linebot_images',
+      resource_type: 'image'
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
     return null;
   }
 }
@@ -91,13 +113,27 @@ async function generateImageWithPrompt(imageBuffer, text) {
       // 檢查是否有 base64 圖片數據
       const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
       if (base64Match) {
-        return base64Match[0]; // 回傳完整的 data URL
+        console.log('Found base64 image, uploading to Cloudinary...');
+        const imageUrl = await uploadImageToCloudinary(base64Match[0]);
+        if (imageUrl) {
+          return imageUrl;
+        }
       }
       
       // 嘗試提取圖片 URL
       const imageUrlMatch = content.match(/https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)/i);
       if (imageUrlMatch) {
         return imageUrlMatch[0];
+      }
+      
+      // 檢查是否有純 base64 內容（沒有 data: 前綴）
+      if (content.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(content.replace(/\s/g, ''))) {
+        console.log('Found raw base64, uploading to Cloudinary...');
+        const dataUrl = `data:image/png;base64,${content}`;
+        const imageUrl = await uploadImageToCloudinary(dataUrl);
+        if (imageUrl) {
+          return imageUrl;
+        }
       }
       
       // 如果都沒有，回傳原始內容供調試
