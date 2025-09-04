@@ -51,6 +51,48 @@ async function getImageBuffer(messageId) {
   }
 }
 
+// 健壯的圖片提取函式，兼容多種格式
+function pickImageDataUrl(choice) {
+  const message = choice.message;
+  
+  // 格式 A: content 是陣列，包含 image 物件
+  if (Array.isArray(message.content)) {
+    const imageContent = message.content.find(item => 
+      item?.type?.toLowerCase().includes('image') || 
+      item?.type === 'output_image'
+    );
+    if (imageContent?.image_url?.url) {
+      return imageContent.image_url.url;
+    }
+  }
+  
+  // 格式 B: message 直接有 images 陣列
+  if (message.images && message.images.length > 0) {
+    const imageUrl = message.images[0]?.image_url?.url;
+    if (imageUrl) {
+      return imageUrl;
+    }
+  }
+  
+  // 格式 C: content 是字串，直接包含 base64 或 data URL
+  if (typeof message.content === 'string') {
+    const content = message.content;
+    
+    // 檢查完整的 data URL
+    const dataUrlMatch = content.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/);
+    if (dataUrlMatch) {
+      return dataUrlMatch[0];
+    }
+    
+    // 檢查純 base64（長度 > 100 且符合 base64 格式）
+    if (content.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(content.replace(/\s/g, ''))) {
+      return `data:image/png;base64,${content}`;
+    }
+  }
+  
+  return null;
+}
+
 // 上傳 base64 圖片到 Cloudinary
 async function uploadImageToCloudinary(base64Data) {
   try {
@@ -96,6 +138,7 @@ async function generateImageWithPrompt(imageBuffer, text) {
         }
       ],
       max_tokens: 1024,
+      stream: false, // 關閉串流確保完整回應
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -106,37 +149,26 @@ async function generateImageWithPrompt(imageBuffer, text) {
     });
 
     if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message) {
-      const content = response.data.choices[0].message.content;
+      const choice = response.data.choices[0];
+      console.log('OR choice0:', JSON.stringify(choice, null, 2)); // Debug log
       
-      console.log('API Response content:', content); // Debug log
+      // 使用更健壯的圖片提取函式
+      const dataUrl = pickImageDataUrl(choice);
       
-      // 檢查是否有 base64 圖片數據
-      const base64Match = content.match(/data:image\/[^;]+;base64,([A-Za-z0-9+/=]+)/);
-      if (base64Match) {
-        console.log('Found base64 image, uploading to Cloudinary...');
-        const imageUrl = await uploadImageToCloudinary(base64Match[0]);
-        if (imageUrl) {
-          return imageUrl;
-        }
-      }
-      
-      // 嘗試提取圖片 URL
-      const imageUrlMatch = content.match(/https?:\/\/[^\s\)]+\.(jpg|jpeg|png|gif|webp)/i);
-      if (imageUrlMatch) {
-        return imageUrlMatch[0];
-      }
-      
-      // 檢查是否有純 base64 內容（沒有 data: 前綴）
-      if (content.length > 100 && /^[A-Za-z0-9+/]+=*$/.test(content.replace(/\s/g, ''))) {
-        console.log('Found raw base64, uploading to Cloudinary...');
-        const dataUrl = `data:image/png;base64,${content}`;
+      if (dataUrl) {
+        console.log('DataURL prefix:', dataUrl.slice(0, 50));
+        console.log('Found image data, uploading to Cloudinary...');
+        
         const imageUrl = await uploadImageToCloudinary(dataUrl);
         if (imageUrl) {
+          console.log('Upload URL:', imageUrl);
           return imageUrl;
         }
       }
       
-      // 如果都沒有，回傳原始內容供調試
+      // 如果沒找到圖片，回傳原始內容供調試
+      const content = choice.message.content;
+      console.log('No image found, raw content:', typeof content === 'string' ? content.slice(0, 200) : content);
       return content;
     }
     return null;
