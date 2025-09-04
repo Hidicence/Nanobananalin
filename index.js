@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
-const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,13 +11,6 @@ console.log('Environment variables loaded:');
 console.log('LINE_CHANNEL_ACCESS_TOKEN:', process.env.LINE_CHANNEL_ACCESS_TOKEN ? 'EXISTS' : 'MISSING');
 console.log('LINE_CHANNEL_SECRET:', process.env.LINE_CHANNEL_SECRET ? 'EXISTS' : 'MISSING');
 console.log('OPENROUTER_API_KEY:', process.env.OPENROUTER_API_KEY ? 'EXISTS' : 'MISSING');
-
-// 設定 Cloudinary（使用免費帳號）
-cloudinary.config({
-  cloud_name: 'demo', // 使用 Cloudinary 的公開 demo 帳號進行測試
-  api_key: '998877665544332',
-  api_secret: 'AbcdEfghIjklMnopQrstUvwxYz'
-});
 
 // 檢查必要的環境變數
 if (!process.env.LINE_CHANNEL_ACCESS_TOKEN || !process.env.LINE_CHANNEL_SECRET || !process.env.OPENROUTER_API_KEY) {
@@ -51,7 +43,7 @@ async function getImageBuffer(messageId) {
   }
 }
 
-// 健壯的圖片提取函式，兼容多種格式
+// 健強的圖片提取函式，兼容多種格式
 function pickImageDataUrl(choice) {
   const message = choice.message;
   
@@ -93,7 +85,8 @@ function pickImageDataUrl(choice) {
   return null;
 }
 
-// 上傳 base64 圖片到 Cloudinary
+// 上傳 base64 圖片到 Cloudinary（已移除，不再需要）
+/*
 async function uploadImageToCloudinary(base64Data) {
   try {
     const result = await cloudinary.uploader.upload(base64Data, {
@@ -103,6 +96,24 @@ async function uploadImageToCloudinary(base64Data) {
     return result.secure_url;
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);
+    return null;
+  }
+}
+*/
+
+// 將 base64 圖片數據直接轉換為 LINE 可用的格式
+function convertBase64ToLineImage(base64Data) {
+  try {
+    // 移除 data URL 前綴（如果有的話）
+    let cleanBase64 = base64Data;
+    if (base64Data.startsWith('data:image')) {
+      cleanBase64 = base64Data.split(',')[1];
+    }
+    
+    // LINE 支持直接發送 base64 圖片
+    return `data:image/png;base64,${cleanBase64}`;
+  } catch (error) {
+    console.error('Error converting base64 to LINE image:', error);
     return null;
   }
 }
@@ -157,19 +168,16 @@ async function generateImageWithPrompt(imageBuffer, text) {
       
       if (dataUrl) {
         console.log('DataURL prefix:', dataUrl.slice(0, 50));
-        console.log('Found image data, uploading to Cloudinary...');
+        console.log('Found image data, returning directly...');
         
-        const imageUrl = await uploadImageToCloudinary(dataUrl);
-        if (imageUrl) {
-          console.log('Upload URL:', imageUrl);
-          return imageUrl;
-        }
+        // 直接返回 base64 數據，讓 LINE 處理
+        return { type: 'base64', data: dataUrl };
       }
       
       // 如果沒找到圖片，回傳原始內容供調試
       const content = choice.message.content;
       console.log('No image found, raw content:', typeof content === 'string' ? content.slice(0, 200) : content);
-      return content;
+      return { type: 'text', data: content };
     }
     return null;
   } catch (error) {
@@ -217,17 +225,33 @@ async function handleEvent(event) {
         
         if (result) {
           userStates.delete(userId);
-          // 檢查是否為圖片 URL
-          if (result.startsWith('http') && /\.(jpg|jpeg|png|gif|webp)$/i.test(result)) {
+          
+          // 根據返回的數據類型處理
+          if (result.type === 'url') {
+            // URL 格式的圖片
             return client.pushMessage(userId, {
               type: 'image',
-              originalContentUrl: result,
-              previewImageUrl: result
+              originalContentUrl: result.data,
+              previewImageUrl: result.data
             });
-          } else {
+          } else if (result.type === 'base64') {
+            // Base64 格式的圖片 - LINE 支持直接發送
+            return client.pushMessage(userId, {
+              type: 'image',
+              originalContentUrl: result.data,
+              previewImageUrl: result.data
+            });
+          } else if (result.type === 'text') {
+            // 文本格式的結果
             return client.pushMessage(userId, {
               type: 'text',
-              text: `生成結果：\n${result}`
+              text: `生成結果：\n${result.data}`
+            });
+          } else {
+            // 默認處理
+            return client.pushMessage(userId, {
+              type: 'text',
+              text: typeof result === 'string' ? result : '圖片生成完成'
             });
           }
         } else {
@@ -242,7 +266,7 @@ async function handleEvent(event) {
         return client.pushMessage(userId, {
           type: 'text',
           text: '無法獲取圖片，請重新上傳。'
-        });
+          });
       }
     } else {
       return client.replyMessage(event.replyToken, {
