@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
+const FormData = require('form-data');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,21 +86,47 @@ function pickImageDataUrl(choice) {
   return null;
 }
 
-// 上傳 base64 圖片到 Cloudinary（已移除，不再需要）
-/*
-async function uploadImageToCloudinary(base64Data) {
+// 添加圖像上傳函數 - 暫時使用 Imgur 作為示例
+async function uploadImageToImgur(buffer) {
   try {
-    const result = await cloudinary.uploader.upload(base64Data, {
-      folder: 'linebot_images',
-      resource_type: 'image'
+    // 注意：這需要一個 Imgur 客戶端 ID
+    // 你需要在 .env 文件中設置 IMGUR_CLIENT_ID
+    const formData = new FormData();
+    formData.append('image', buffer.toString('base64'));
+    
+    const response = await axios.post('https://api.imgur.com/3/image', formData, {
+      headers: {
+        'Authorization': `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+        ...formData.getHeaders()
+      }
     });
-    return result.secure_url;
+    
+    if (response.data && response.data.data && response.data.data.link) {
+      return response.data.data.link;
+    }
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error);
-    return null;
+    console.error('Error uploading to Imgur:', error.message);
   }
+  return null;
 }
-*/
+
+// 添加本地臨時存儲函數（僅用於測試）
+async function saveImageLocally(buffer, filename) {
+  try {
+    // 在 Render 上這不會工作，僅用於本地測試
+    const fs = require('fs').promises;
+    const path = require('path');
+    
+    const imagePath = path.join(__dirname, 'temp', filename);
+    await fs.writeFile(imagePath, buffer);
+    
+    // 返回本地路徑（在實際部署中這不會工作）
+    return `https://your-render-url/temp/${filename}`;
+  } catch (error) {
+    console.error('Error saving image locally:', error.message);
+  }
+  return null;
+}
 
 // 將 base64 圖片數據直接轉換為 LINE 可用的格式
 function convertBase64ToLineImage(base64Data) {
@@ -168,10 +195,15 @@ async function generateImageWithPrompt(imageBuffer, text) {
       
       if (dataUrl) {
         console.log('DataURL prefix:', dataUrl.slice(0, 50));
-        console.log('Found image data, returning directly...');
+        console.log('Found image data, processing for LINE...');
         
-        // 直接返回 base64 數據，讓 LINE 處理
-        return { type: 'base64', data: dataUrl };
+        // 解析 base64 數據
+        const base64 = dataUrl.split(',')[1];
+        const imageBuffer = Buffer.from(base64, 'base64');
+        
+        // 這裡我們需要上傳到一個公開可訪問的存儲服務
+        // 暫時返回 base64 數據，稍後我們會實現上傳功能
+        return { type: 'buffer', data: imageBuffer };
       }
       
       // 如果沒找到圖片，回傳原始內容供調試
@@ -234,12 +266,24 @@ async function handleEvent(event) {
               originalContentUrl: result.data,
               previewImageUrl: result.data
             });
-          } else if (result.type === 'base64') {
-            // Base64 格式的圖片 - LINE 支持直接發送
+          } else if (result.type === 'buffer') {
+            // 圖像緩衝區 - 需要上傳到公開存儲
+            // 暫時使用 Imgur（需要 IMGUR_CLIENT_ID）
+            if (process.env.IMGUR_CLIENT_ID) {
+              const imageUrl = await uploadImageToImgur(result.data);
+              if (imageUrl) {
+                return client.pushMessage(userId, {
+                  type: 'image',
+                  originalContentUrl: imageUrl,
+                  previewImageUrl: imageUrl
+                });
+              }
+            }
+            
+            // 如果 Imgur 上傳失敗或沒有配置，返回錯誤消息
             return client.pushMessage(userId, {
-              type: 'image',
-              originalContentUrl: result.data,
-              previewImageUrl: result.data
+              type: 'text',
+              text: '圖片生成完成，但無法上傳到公開存儲服務。請聯繫管理員配置圖像存儲服務。'
             });
           } else if (result.type === 'text') {
             // 文本格式的結果
@@ -266,7 +310,7 @@ async function handleEvent(event) {
         return client.pushMessage(userId, {
           type: 'text',
           text: '無法獲取圖片，請重新上傳。'
-          });
+        });
       }
     } else {
       return client.replyMessage(event.replyToken, {
