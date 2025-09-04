@@ -86,7 +86,31 @@ function pickImageDataUrl(choice) {
   return null;
 }
 
-// 添加圖像上傳函數 - 暫時使用 Imgur 作為示例
+// 添加圖像上傳函數 - 使用 ImgBB
+async function uploadImageToImgBB(buffer) {
+  try {
+    const formData = new FormData();
+    formData.append('image', buffer.toString('base64'));
+    formData.append('key', process.env.IMGBB_API_KEY);
+    
+    const response = await axios.post('https://api.imgbb.com/1/upload', formData, {
+      headers: {
+        ...formData.getHeaders()
+      }
+    });
+    
+    if (response.data && response.data.data && response.data.data.url) {
+      console.log('Image uploaded to ImgBB:', response.data.data.url);
+      return response.data.data.url;
+    }
+  } catch (error) {
+    console.error('Error uploading to ImgBB:', error.response?.data || error.message);
+  }
+  return null;
+}
+
+// 移除 Imgur 相关函数
+/*
 async function uploadImageToImgur(buffer) {
   try {
     // 注意：這需要一個 Imgur 客戶端 ID
@@ -109,6 +133,7 @@ async function uploadImageToImgur(buffer) {
   }
   return null;
 }
+*/
 
 // 添加本地臨時存儲函數（僅用於測試）
 async function saveImageLocally(buffer, filename) {
@@ -268,9 +293,9 @@ async function handleEvent(event) {
             });
           } else if (result.type === 'buffer') {
             // 圖像緩衝區 - 需要上傳到公開存儲
-            // 暫時使用 Imgur（需要 IMGUR_CLIENT_ID）
-            if (process.env.IMGUR_CLIENT_ID) {
-              const imageUrl = await uploadImageToImgur(result.data);
+            // 使用 ImgBB（需要 IMGBB_API_KEY）
+            if (process.env.IMGBB_API_KEY) {
+              const imageUrl = await uploadImageToImgBB(result.data);
               if (imageUrl) {
                 return client.pushMessage(userId, {
                   type: 'image',
@@ -280,7 +305,7 @@ async function handleEvent(event) {
               }
             }
             
-            // 如果 Imgur 上傳失敗或沒有配置，返回錯誤消息
+            // 如果 ImgBB 上傳失敗或沒有配置，返回錯誤消息
             return client.pushMessage(userId, {
               type: 'text',
               text: '圖片生成完成，但無法上傳到公開存儲服務。請聯繫管理員配置圖像存儲服務。'
