@@ -361,6 +361,65 @@ async function handleEvent(event) {
                 '• 物件偵測\n' +
                 '• 文字辨識'
         });
+        
+      case '選單':
+        // 發送帶有 Quick Reply 的消息
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請選擇您想要的功能：',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '上傳圖片',
+                  text: '上傳圖片'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '風格轉換',
+                  text: '圖片風格轉換'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '圖片增強',
+                  text: '圖片增強'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '物件偵測',
+                  text: '物件偵測'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '文字辨識',
+                  text: '文字辨識'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: '說明',
+                  text: '說明'
+                }
+              }
+            ]
+          }
+        });
     }
   }
   
@@ -371,7 +430,35 @@ async function handleEvent(event) {
             '• 圖片風格轉換：輸入您想要的風格描述\n' +
             '• 圖片增強：輸入「增強」\n' +
             '• 物件偵測：輸入「偵測」\n' +
-            '• 文字辨識：輸入「辨識」'
+            '• 文字辨識：輸入「辨識」',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '風格轉換',
+              text: '圖片風格轉換'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '圖片增強',
+              text: '圖片增強'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '物件偵測',
+              text: '物件偵測'
+            }
+          }
+        ]
+      }
     });
     
     userStates.set(userId, {
