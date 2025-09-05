@@ -1,12 +1,26 @@
-# LINE Bot 圖片分析器
+# LINE Bot 圖片處理器
 
-使用 Google Gemini 2.5 Flash Vision 的 LINE Bot，讓用戶透過 LINE 上傳圖片並獲得 AI 分析。
+使用 Google Gemini 2.5 Flash Vision 的 LINE Bot，讓用戶透過 LINE 上傳圖片並獲得 AI 圖片處理與分析。
 
-## 功能
+## 功能特色
 
-- 上傳圖片後傳送文字描述或問題來分析圖片
-- 使用 Google Gemini 2.5 Flash Vision 模型
-- 支援圖片內容識別、物體檢測、文字識別等功能
+- **AI 圖片生成**：基於用戶上傳的圖片和描述，生成新的圖片
+- **多種圖片處理功能**：
+  - 圖片風格轉換（卡通風格、油畫風格等）
+  - 圖片增強與優化
+  - 物件偵測與標記
+  - 文字辨識與翻譯
+- **直觀的用戶界面**：
+  - Rich Menu 圖形化菜單
+  - Quick Reply 快速回覆按鈕
+- **無需複雜設置**：直接在 LINE 中使用，無需額外應用
+
+## 技術架構
+
+- **後端語言**：Node.js + Express
+- **AI 模型**：Google Gemini 2.5 Flash Vision（通過 OpenRouter API 調用）
+- **圖片存儲**：ImgBB 圖片托管服務
+- **LINE 整合**：LINE Messaging API SDK
 
 ## 安裝與設置
 
@@ -16,72 +30,145 @@
 npm install
 ```
 
-### 2. 設定 LINE Bot
+### 2. 設定環境變數
 
-1. 到 [LINE Developers Console](https://developers.line.biz/console/) 創建新的 Channel
-2. 複製 Channel Access Token 和 Channel Secret
-3. 在 `.env` 檔案中填入你的 LINE Bot 資訊：
+在 `.env` 檔案中填入必要的配置資訊：
 
 ```env
+# LINE Bot 配置
 LINE_CHANNEL_ACCESS_TOKEN=你的_LINE_CHANNEL_ACCESS_TOKEN
 LINE_CHANNEL_SECRET=你的_LINE_CHANNEL_SECRET
+
+# OpenRouter AI 配置
+OPENROUTER_API_KEY=你的_OPENROUTER_API_KEY
+
+# ImgBB 圖片存儲配置
+IMGBB_API_KEY=你的_IMGBB_API_KEY
+
+# 伺服器配置
+PORT=10000
 ```
 
-### 3. 設定 Webhook URL
+### 3. 設定 LINE Bot
 
-在 LINE Developers Console 中設定 Webhook URL：
+1. 到 [LINE Developers Console](https://developers.line.biz/console/) 創建新的 Messaging API Channel
+2. 複製 Channel Access Token 和 Channel Secret
+3. 在 LINE Developers Console 中設定 Webhook URL：
 ```
 https://你的伺服器網址/webhook
 ```
 
+### 4. 設置 Rich Menu（可選但推薦）
+
+1. 登錄 LINE Developers 控制台
+2. 創建 Rich Menu 並配置以下區域：
+   - 上傳圖片
+   - 圖片風格轉換
+   - 圖片增強
+   - 物件偵測
+   - 文字辨識
+   - 說明
+3. 上傳菜單圖片（可使用 `node generateMenuImage.js` 生成）
+
 ## 啟動服務
 
+### 本地開發
+```bash
+npm run dev
+```
+
+### 生產環境
 ```bash
 npm start
 ```
 
-伺服器將在 port 3000 運行。
+伺服器將在指定端口運行（預設 10000）。
 
 ## 使用方法
 
-在 LINE 中與你的 bot 對話：
+### 通過菜單使用
+1. 在 LINE 中與你的 bot 對話
+2. 使用 Rich Menu 或輸入「選單」顯示功能選項
+3. 點擊相應按鈕執行功能
 
+### 直接使用
 1. **上傳圖片**：直接在聊天室中傳送一張圖片
-2. **傳送文字**：接著傳送你想問的問題或描述
+2. **選擇功能**：根據提示選擇想要的操作
+3. **輸入描述**：輸入具體的處理要求
 
-### 範例
+### 功能詳情
 
+#### 圖片風格轉換
 ```
-步驟 1：上傳食物照片
-步驟 2：傳送文字：「這是什麼料理？」
+上傳圖片 → 輸入風格描述 → 生成新風格圖片
+範例描述：「改成卡通風格」、「轉為油畫效果」、「黑白處理」
+```
 
-步驟 1：上傳文件照片
-步驟 2：傳送文字：「幫我翻譯這些文字」
+#### 圖片增強
+```
+上傳圖片 → 輸入「增強」 → 獲得優化後的圖片
+```
 
-步驟 1：上傳景物照片
-步驟 2：傳送文字：「描述這個場景」
+#### 物件偵測
+```
+上傳圖片 → 輸入「偵測」 → 獲得圖片中物件的標記與分析
+```
+
+#### 文字辨識
+```
+上傳包含文字的圖片 → 輸入「辨識」 → 獲得圖片中文字的識別結果
 ```
 
 ## 檔案結構
 
 ```
-├── index.js          # 主要應用程式檔案
-├── .env              # 環境變數配置
-├── package.json      # NPM 配置檔案
-└── README.md         # 說明文件
+├── index.js              # 主要應用程式檔案
+├── menuConfig.js         # Rich Menu 配置
+├── setupRichMenu.js      # Rich Menu 設置腳本
+├── generateMenuImage.js  # 菜單圖片生成腳本
+├── .env                  # 環境變數配置
+├── package.json          # NPM 配置檔案
+└── README.md             # 說明文件
 ```
 
-## 環境變數
+## 環境變數說明
 
 - `LINE_CHANNEL_ACCESS_TOKEN`: LINE Bot 的 Access Token
 - `LINE_CHANNEL_SECRET`: LINE Bot 的 Channel Secret
-- `OPENROUTER_API_KEY`: OpenRouter AI 的 API Key（已預設）
-- `PORT`: 伺服器端口（預設 3000）
+- `OPENROUTER_API_KEY`: OpenRouter AI 的 API Key
+- `IMGBB_API_KEY`: ImgBB 圖片托管服務的 API Key
+- `PORT`: 伺服器端口（預設 10000）
+
+## 部署到 Render
+
+1. 連接你的 GitHub 倉庫
+2. 設置環境變數
+3. 配置 Build Command: `npm install`
+4. 配置 Start Command: `npm start`
 
 ## 注意事項
 
-- 圖片分析可能需要一些時間，請耐心等待
+- 圖片處理可能需要一些時間，請耐心等待
 - 支援常見圖片格式（JPG, PNG 等）
 - 請確保網路連線穩定
-- 使用詳細的問題或描述可以獲得更精確的分析結果
+- 生成的圖片會自動上傳到 ImgBB 並通過 LINE 發送
 - 圖片和文字訊息必須在 5 分鐘內連續傳送，超時後需要重新上傳圖片
+- ImgBB 有免費使用額度限制，請注意使用量
+
+## 故障排除
+
+### 常見問題
+
+1. **圖片無法發送**：
+   - 檢查 ImgBB API Key 是否正確配置
+   - 確認圖片大小不超過 LINE 限制（10MB）
+
+2. **AI 回應緩慢**：
+   - 可能是 OpenRouter 服務繁忙，請稍後重試
+
+3. **菜單無法顯示**：
+   - 確認 Rich Menu 已正確設置並設為預設菜單
+
+### 支援與反饋
+
+如有問題或建議，請通過 GitHub Issues 提交反饋。
