@@ -336,9 +336,15 @@ async function handleEvent(event) {
   if (event.message.type === 'text') {
     const text = event.message.text;
     
+    // 调试信息：记录收到的文本消息
+    console.log(`收到文本消息: "${text}"`);
+    
     // 檢查是否為菜單關鍵字
     const menuKeywords = ['圖片變模型', '樂高玩具', '針織玩偶', '專業履歷照', '日系寫真', '1970年'];
     if (menuKeywords.includes(text)) {
+      // 调试信息：匹配到菜单关键字
+      console.log(`匹配到菜单关键字: "${text}"`);
+      
       // 根據關鍵字獲取對應的 Prompt
       const prompt = promptMapping.prompts[text];
       if (prompt) {
@@ -349,10 +355,16 @@ async function handleEvent(event) {
           timestamp: Date.now()
         });
         
+        console.log(`成功设置用户状态，功能: "${text}"`);
+        
         return client.replyMessage(event.replyToken, {
           type: 'text',
           text: `您選擇了「${text}」功能。\n請上傳一張圖片，我會根據您的選擇進行處理。`
         });
+      } else {
+        // 调试信息：如果找不到对应的 prompt
+        console.log(`找不到关键字 "${text}" 对应的 prompt`);
+        console.log('可用的 prompts:', Object.keys(promptMapping.prompts));
       }
     }
     
