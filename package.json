@@ -12,13 +12,14 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A LINE Bot with Google Gemini 2.5 Flash Vision integration for image processing and LINE Pay payment functionality",
   "dependencies": {
     "@line/bot-sdk": "^9.9.0",
     "axios": "^1.11.0",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "form-data": "^4.0.0",
-    "canvas": "^2.11.2"
+    "canvas": "^2.11.2",
+    "line-pay": "^1.0.0"
   }
 }

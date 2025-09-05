@@ -4,6 +4,7 @@ const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
 const FormData = require('form-data');
 const promptMapping = require('./promptMapping');
+const LinePay = require('line-pay');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,106 @@ const config = {
 };
 
 const client = new Client(config);
+// LINE Pay 初始化 - 檢查設定是否完整
+let pay = null;
+let isLinePayConfigured = false;
+
+if (process.env.LINE_PAY_CHANNEL_ID && 
+    process.env.LINE_PAY_CHANNEL_SECRET && 
+    process.env.LINE_PAY_CHANNEL_ID !== 'your_line_pay_channel_id') {
+  try {
+    pay = new LinePay({
+      channelId: process.env.LINE_PAY_CHANNEL_ID,
+      channelSecret: process.env.LINE_PAY_CHANNEL_SECRET,
+      isSandbox: true // 設為 false 使用正式環境
+    });
+    isLinePayConfigured = true;
+    console.log('✅ LINE Pay 已配置完成');
+  } catch (error) {
+    console.error('❌ LINE Pay 初始化失敗:', error.message);
+  }
+} else {
+  console.log('⚠️  LINE Pay 尚未配置，付費功能將顯示提示訊息');
+}
+
+// 用户使用次数跟踪 - 简单的内存存储（实际项目中应使用数据库）
+const userUsage = new Map();
+const DAILY_LIMIT = 1; // 每日免费生成次数
+const GENERATION_COST = 10; // 每次生成费用（台币）
+
+// 获取用户今天的使用次数
+function getUserTodayUsage(userId) {
+  const today = new Date().toDateString();
+  if (!userUsage.has(userId)) {
+    userUsage.set(userId, {});
+  }
+  const userDailyUsage = userUsage.get(userId);
+  if (!userDailyUsage[today]) {
+    userDailyUsage[today] = 0;
+  }
+  return userDailyUsage[today];
+}
+
+// 增加用户今天的使用次数
+function incrementUserTodayUsage(userId) {
+  const today = new Date().toDateString();
+  if (!userUsage.has(userId)) {
+    userUsage.set(userId, {});
+  }
+  const userDailyUsage = userUsage.get(userId);
+  if (!userDailyUsage[today]) {
+    userDailyUsage[today] = 0;
+  }
+  userDailyUsage[today]++;
+  return userDailyUsage[today];
+}
+
+// 检查用户是否还有免费额度
+function hasFreeQuota(userId) {
+  return getUserTodayUsage(userId) < DAILY_LIMIT;
+}
+
+// 创建支付请求
+async function createPaymentRequest(userId, productName, amount, req) {
+  try {
+    // 獲取當前域名，如果是本地開發則使用 ngrok
+    const host = req ? req.get('host') : process.env.BASE_URL || 'localhost:10000';
+    const protocol = host.includes('localhost') ? 'https' : 'https'; // ngrok 使用 https
+    
+    const reservation = await pay.reserve({
+      productName: productName,
+      amount: amount,
+      currency: 'TWD',
+      confirmUrl: `${protocol}://${host}/pay/confirm`,
+      confirmUrlType: 'SERVER',
+      orderId: `${userId}_${Date.now()}` // 唯一订单ID
+    });
+    
+    // 保存支付信息到用户状态
+    userStates.set(userId, {
+      ...userStates.get(userId),
+      paymentReservationId: reservation.info.reservationId,
+      paymentAmount: amount,
+      pendingImageRequest: true // 標記有待處理的圖片請求
+    });
+    
+    return reservation.info;
+  } catch (error) {
+    console.error('创建支付请求失败:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+// 确认支付
+async function confirmPayment(reservationId) {
+  try {
+    const confirmation = await pay.confirm(reservationId);
+    return confirmation;
+  } catch (error) {
+    console.error('支付确认失败:', error);
+    return null;
+  }
+}
 
 // 只在 LINE webhook 路徑使用 middleware
 app.use('/webhook', middleware(config));
@@ -485,10 +586,42 @@ async function handleEvent(event) {
       const selectedFunction = userState.selectedFunction;
       const prompt = userState.prompt;
       
+      // 检查用户使用次数和付费状态
+      if (!hasFreeQuota(userId) && !userState.paidForGeneration) {
+        // 用户已超出免费额度且未付费，需要支付
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `您今天的免費額度 (${DAILY_LIMIT} 次) 已用完。\n\n繼續生成圖片需要支付 ${GENERATION_COST} 元，每次付費可生成一張圖片。\n\n請點擊下方按鈕進行支付：`,
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: `💰 支付 ${GENERATION_COST} 元生成圖片`,
+                  text: '支付並生成圖片'
+                }
+              }
+            ]
+          }
+        });
+        return Promise.resolve(null);
+      }
+      
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: `正在處理圖片，使用「${selectedFunction}」功能...\n請稍候...`
       });
+      
+      // 增加用户使用次数（免費用戶）或重置付費標記（付費用戶）
+      if (userState.paidForGeneration) {
+        // 付費用戶，重置付費標記
+        userState.paidForGeneration = false;
+        userStates.set(userId, userState);
+      } else {
+        // 免費用戶，增加使用次數
+        incrementUserTodayUsage(userId);
+      }
       
       // 清除用戶狀態
       userStates.delete(userId);
@@ -572,11 +705,135 @@ async function handleEvent(event) {
     const text = event.message.text;
     const userState = userStates.get(userId);
     
+    // 处理支付请求
+    if (text === '支付並生成圖片') {
+      // 檢查 LINE Pay 設定是否完整
+      if (!isLinePayConfigured) {
+        return client.replyMessage(event.replyToken, {
+          type: 'template',
+          altText: '付費功能說明',
+          template: {
+            type: 'buttons',
+            title: '付費功能準備中 🚧',
+            text: '我們正在準備付費功能\n敬請期待！',
+            actions: [
+              {
+                type: 'message',
+                label: '了解更多',
+                text: '付費功能說明'
+              }
+            ]
+          }
+        });
+      }
+      
+      // 创建支付请求 (需要傳遞 req 對象，但這裡沒有，所以先 null)
+      const paymentInfo = await createPaymentRequest(
+        userId, 
+        '圖片生成服務', 
+        GENERATION_COST,
+        null // 這裡需要完善
+      );
+      
+      if (paymentInfo) {
+        // 发送支付链接给用户
+        return client.replyMessage(event.replyToken, {
+          type: 'template',
+          altText: '圖片生成支付',
+          template: {
+            type: 'buttons',
+            title: '圖片生成服務',
+            text: `支付金額: ${GENERATION_COST} 元`,
+            actions: [
+              {
+                type: 'uri',
+                label: '前往支付',
+                uri: paymentInfo.paymentUrl.web
+              }
+            ]
+          }
+        });
+      } else {
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '創建支付請求失敗，可能是 LINE Pay 設定問題。\n請稍後再試或聯繫客服。'
+        });
+      }
+    }
+    
+    // 處理付費功能說明
+    if (text === '付費功能說明') {
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `💰 付費功能說明\n\n` +
+              `🎯 **使用方式**：\n` +
+              `• 每天免費生成 ${DAILY_LIMIT} 次\n` +
+              `• 超過後每次生成 ${GENERATION_COST} 元\n` +
+              `• 支付後立即可用\n\n` +
+              `🔧 **設定狀態**：\n` +
+              `${isLinePayConfigured ? '✅ 已完成設定' : '⚙️ 準備中'}\n\n` +
+              `📋 **功能特色**：\n` +
+              `• 圖片變模型、樂高風格\n` +
+              `• 針織玩偶、專業履歷照\n` +
+              `• 日系寫真、復古風格\n\n` +
+              `${isLinePayConfigured ? '準備好開始創作了嗎？' : '敬請期待正式上線！'}`
+      });
+    }
+    
+    // 處理使用統計查詢
+    if (text === '使用統計' || text === '我的使用量') {
+      const todayUsage = getUserTodayUsage(userId);
+      const remainingFree = Math.max(0, DAILY_LIMIT - todayUsage);
+      
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `📊 **您的使用統計**\n\n` +
+              `🆓 **今日免費額度**：\n` +
+              `• 已使用：${todayUsage} / ${DAILY_LIMIT} 次\n` +
+              `• 剩餘：${remainingFree} 次\n\n` +
+              `💡 **小提示**：\n` +
+              `${remainingFree > 0 ? '您還有免費額度可使用！' : `超過免費額度後，每次生成需付費 ${GENERATION_COST} 元`}\n\n` +
+              `🔄 **額度重置**：每日午夜 00:00`
+      });
+    }
+    
     if (userState && userState.imageId && (Date.now() - userState.timestamp < 180000)) { // 3分鐘 = 180000毫秒
+      // 检查用户使用次数和付费状态
+      if (!hasFreeQuota(userId) && !userState.paidForGeneration) {
+        // 用户已超出免费额度且未付费，需要支付
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `您今天的免費額度 (${DAILY_LIMIT} 次) 已用完。\n\n繼續生成圖片需要支付 ${GENERATION_COST} 元，每次付費可生成一張圖片。\n\n請點擊下方按鈕進行支付：`,
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'message',
+                  label: `💰 支付 ${GENERATION_COST} 元生成圖片`,
+                  text: '支付並生成圖片'
+                }
+              }
+            ]
+          }
+        });
+        return Promise.resolve(null);
+      }
+      
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '正在基於您的圖片和描述生成新圖片，請稍候...'
       });
+      
+      // 增加用户使用次数（免費用戶）或重置付費標記（付費用戶）
+      if (userState.paidForGeneration) {
+        // 付費用戶，重置付費標記
+        userState.paidForGeneration = false;
+        userStates.set(userId, userState);
+      } else {
+        // 免費用戶，增加使用次數
+        incrementUserTodayUsage(userId);
+      }
       
       const imageBuffer = await getImageBuffer(userState.imageId);
       if (imageBuffer) {
@@ -650,6 +907,74 @@ async function handleEvent(event) {
   
   return Promise.resolve(null);
 }
+
+// 添加支付确认路由
+app.get('/pay/confirm', async (req, res) => {
+  try {
+    const { transactionId, orderId } = req.query;
+    console.log('收到支付確認請求:', { transactionId, orderId });
+    
+    // 确认支付
+    const confirmation = await confirmPayment(transactionId);
+    console.log('支付確認結果:', confirmation);
+    
+    if (confirmation && confirmation.returnCode === "0000") {
+      // 支付成功，获取用户ID
+      const userId = orderId.split('_')[0];
+      
+      // 獲取用戶狀態
+      const userState = userStates.get(userId);
+      if (userState && userState.pendingImageRequest) {
+        // 如果有待處理的圖片請求，允許用戶繼續
+        userState.paidForGeneration = true;
+        userState.pendingImageRequest = false;
+        userStates.set(userId, userState);
+        
+        // 通知用户支付成功，可以继续生成图片
+        await client.pushMessage(userId, {
+          type: 'text',
+          text: '支付成功！✅\n\n現在請重新上傳圖片或輸入生成指令，我就會為您處理。'
+        });
+      } else {
+        // 一般支付成功通知
+        await client.pushMessage(userId, {
+          type: 'text',
+          text: '支付成功！您已獲得額外的圖片生成次數。'
+        });
+      }
+      
+      res.send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h2 style="color: green;">✅ 支付成功！</h2>
+            <p>您已成功完成支付，可以關閉此頁面返回 LINE 繼續使用服務。</p>
+            <p style="color: #666; font-size: 14px;">感謝您的支持！</p>
+          </body>
+        </html>
+      `);
+    } else {
+      console.error('支付確認失敗:', confirmation);
+      res.status(400).send(`
+        <html>
+          <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h2 style="color: red;">❌ 支付失敗</h2>
+            <p>支付確認失敗，請重試或聯繫客服。</p>
+          </body>
+        </html>
+      `);
+    }
+  } catch (error) {
+    console.error('支付确认错误:', error);
+    res.status(500).send(`
+      <html>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h2 style="color: red;">❌ 系統錯誤</h2>
+          <p>支付確認過程發生錯誤，請聯繫客服。</p>
+        </body>
+      </html>
+    `);
+  }
+});
 
 app.post('/webhook', (req, res) => {
   Promise

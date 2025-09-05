@@ -2,7 +2,7 @@
 // 根据 richmenu-template-guide 的区域划分：
 // A (区域1): 图片变模型
 // B (区域2): 乐高玩具
-// C (区域3): 针织玩偶
+// C (区域3): 雜誌封面
 // D (区域4): 专业履历照
 // E (区域5): 日系写真
 // F (区域6): 1970年
@@ -12,7 +12,7 @@ module.exports = {
   areas: {
     'A': '圖片變模型',
     'B': '樂高玩具',
-    'C': '針織玩偶',
+    'C': '雜誌封面',
     'D': '專業履歷照',
     'E': '日系寫真',
     'F': '1970年'
@@ -24,7 +24,7 @@ module.exports = {
     
     '樂高玩具': `Transform the person in the photo into the style of a LEGO minifigure packaging box, presented in an isometric perspective. Label the packaging with the title 'ZHOGUE'. Inside the box, showcase the LEGO minifigure based on the person in the photo, accompanied by their essential items (such as cosmetics, bags, or others) as LEGO accessories. Next to the box, also display the actual LEGO minifigure itself outside of the packaging, rendered in a realistic and lifelike style.`,
     
-    '針織玩偶': `A close-up, professionally composed photograph showing a handmade crocheted yarn doll being gently held in both hands. The doll has a rounded shape and an adorable chibi-style appearance, with vivid color contrasts and rich details. The hands holding the doll appear natural and tender, with clearly visible finger posture, and the skin texture and light-shadow transitions look soft and realistic, conveying a warm, tangible touch. The background is slightly blurred, depicting an indoor setting with a warm wooden tabletop and natural light streaming in through a window, creating a cozy and intimate atmosphere. The overall image conveys a sense of exquisite craftsmanship and a cherished, heartwarming emotion.`,
+    '雜誌封面': `生成高畫質寫真，時尚風格，專業攝影棚打光，隨機拍攝角度，可為全身或半身。身穿時尚服飾，自然但充滿自信的姿態，真實膚質與髮絲細節清晰。畫面構圖如同時尚雜誌封面，搭配極簡排版與雜誌文字設計元素，整體氛圍高級、專業，照片質感如 Vogue 或 ELLE 的雜誌封面。`,
     
     '專業履歷照': `生成專業棚拍形象照，穿著黑色西裝，深色背景，適合放在履歷的照片`,
     

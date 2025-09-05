@@ -20,13 +20,16 @@
 - **直觀的用戶界面**：
   - Rich Menu 圖形化菜單
   - Quick Reply 快速回覆按鈕
-- **無需複雜設置**：直接在 LINE 中使用，無需額外應用
+- **付費功能**：
+  - 每天免費生成一張圖片
+  - 超出免費額度後可通過 LINE Pay 支付繼續生成
 
 ## 技術架構
 
 - **後端語言**：Node.js + Express
 - **AI 模型**：Google Gemini 2.5 Flash Vision（通過 OpenRouter API 調用）
 - **圖片存儲**：ImgBB 圖片托管服務
+- **支付系統**：LINE Pay
 - **LINE 整合**：LINE Messaging API SDK
 
 ## 安裝與設置
@@ -51,6 +54,10 @@ OPENROUTER_API_KEY=你的_OPENROUTER_API_KEY
 
 # ImgBB 圖片存儲配置
 IMGBB_API_KEY=你的_IMGBB_API_KEY
+
+# LINE Pay 配置（可選）
+LINE_PAY_CHANNEL_ID=你的_LINE_PAY_CHANNEL_ID
+LINE_PAY_CHANNEL_SECRET=你的_LINE_PAY_CHANNEL_SECRET
 
 # 伺服器配置
 PORT=10000
@@ -104,6 +111,11 @@ npm start
 2. **選擇功能**：根據提示選擇想要的操作
 3. **輸入描述**：輸入具體的處理要求
 
+### 付費功能
+- 每個用戶每天可以免費生成一張圖片
+- 當免費額度用完後，系統會提示用戶通過 LINE Pay 支付 10 元繼續生成圖片
+- 支付成功後可立即繼續使用圖片生成功能
+
 ### 功能詳情
 
 #### 預設圖片處理功能
@@ -151,6 +163,8 @@ F. 1970台灣：將人物轉換為1970年代台灣風格
 - `LINE_CHANNEL_SECRET`: LINE Bot 的 Channel Secret
 - `OPENROUTER_API_KEY`: OpenRouter AI 的 API Key
 - `IMGBB_API_KEY`: ImgBB 圖片托管服務的 API Key
+- `LINE_PAY_CHANNEL_ID`: LINE Pay 的 Channel ID（可選）
+- `LINE_PAY_CHANNEL_SECRET`: LINE Pay 的 Channel Secret（可選）
 - `PORT`: 伺服器端口（預設 10000）
 
 ## 部署到 Render
@@ -168,6 +182,7 @@ F. 1970台灣：將人物轉換為1970年代台灣風格
 - 生成的圖片會自動上傳到 ImgBB 並通過 LINE 發送
 - 圖片和文字訊息必須在 5 分鐘內連續傳送，超時後需要重新上傳圖片
 - ImgBB 有免費使用額度限制，請注意使用量
+- LINE Pay 功能需要在 LINE Developers Console 中配置相應的支付渠道
 
 ## 故障排除
 
@@ -182,6 +197,10 @@ F. 1970台灣：將人物轉換為1970年代台灣風格
 
 3. **菜單無法顯示**：
    - 確認 Rich Menu 已正確設置並設為預設菜單
+
+4. **支付功能無法使用**：
+   - 確認 LINE Pay 的 Channel ID 和 Secret 已正確配置
+   - 檢查是否已完成 LINE Pay 的商戶申請流程
 
 ### 支援與反饋
 
