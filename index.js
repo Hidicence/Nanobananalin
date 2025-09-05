@@ -327,20 +327,36 @@ async function handlePostbackEvent(event) {
 
 async function handleEvent(event) {
   if (event.type !== 'message') {
-    // 處理 postback 事件（來自菜單）
-    if (event.type === 'postback') {
-      return handlePostbackEvent(event);
-    }
     return Promise.resolve(null);
   }
 
   const userId = event.source.userId;
   
-  // 處理菜單選項
+  // 處理菜單選項（用戶點擊菜單後自動發送的消息）
   if (event.message.type === 'text') {
     const text = event.message.text;
     
-    // 根據菜單選項執行相應操作
+    // 檢查是否為菜單關鍵字
+    const menuKeywords = ['圖片變模型', '樂高玩具', '針織玩偶', '專業履歷照', '日系寫真', '1970年'];
+    if (menuKeywords.includes(text)) {
+      // 根據關鍵字獲取對應的 Prompt
+      const prompt = promptMapping.prompts[text];
+      if (prompt) {
+        // 保存用戶狀態，標記選擇的功能
+        userStates.set(userId, {
+          selectedFunction: text,
+          prompt: prompt,
+          timestamp: Date.now()
+        });
+        
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `您選擇了「${text}」功能。\n請上傳一張圖片，我會根據您的選擇進行處理。`
+        });
+      }
+    }
+    
+    // 根據菜單選項執行相應操作（原有邏輯）
     switch (text) {
       case '上傳圖片':
         return client.replyMessage(event.replyToken, {
@@ -451,9 +467,9 @@ async function handleEvent(event) {
   if (event.message.type === 'image') {
     const userState = userStates.get(userId);
     
-    // 檢查用戶是否已選擇功能（通過菜單）
+    // 檢查用戶是否已選擇功能（通過菜單關鍵字）
     if (userState && userState.selectedFunction && userState.prompt) {
-      // 用戶已通過菜單選擇功能
+      // 用戶已通過菜單關鍵字選擇功能
       const selectedFunction = userState.selectedFunction;
       const prompt = userState.prompt;
       
@@ -538,7 +554,7 @@ async function handleEvent(event) {
     
     return Promise.resolve(null);
   }
-
+  
   // 處理文字消息（用戶未通過菜單選擇功能時）
   if (event.message.type === 'text') {
     const text = event.message.text;
@@ -612,6 +628,7 @@ async function handleEvent(event) {
         });
       }
     } else {
+      // 如果用戶沒有上傳圖片或者超時，則按照原有菜單邏輯處理
       return client.replyMessage(event.replyToken, {
         type: 'text',
         text: '使用方法：\n1. 傳送一張圖片\n2. 接著傳送文字描述您想要生成的新圖片\n\n範例：\n• 上傳風景照後，輸入「把這個場景改成夜晚」\n• 上傳人像照後，輸入「改成卡通風格」\n• 上傳物品照後，輸入「加上彩虹背景」'
