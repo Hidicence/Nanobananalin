@@ -313,12 +313,12 @@ async function handlePostbackEvent(event) {
               '2. 上傳圖片\n' +
               '3. 等待處理結果\n\n' +
               '支援的功能：\n' +
-              '• 圖片變手辦\n' +
-              '• 圖片轉樂高\n' +
-              '• 圖片轉針織玩偶\n' +
-              '• 人物形象與棚拍照\n' +
+              '• 圖片變模型\n' +
+              '• 樂高玩具\n' +
+              '• 針織玩偶\n' +
+              '• 專業履歷照\n' +
               '• 日系寫真\n' +
-              '• 1970台灣風格'
+              '• 1970年風格'
       });
   }
   
@@ -451,7 +451,7 @@ async function handleEvent(event) {
   if (event.message.type === 'image') {
     const userState = userStates.get(userId);
     
-    // 檢查用戶是否已選擇功能
+    // 檢查用戶是否已選擇功能（通過菜單）
     if (userState && userState.selectedFunction && userState.prompt) {
       // 用戶已通過菜單選擇功能
       const selectedFunction = userState.selectedFunction;
@@ -524,42 +524,10 @@ async function handleEvent(event) {
         });
       }
     } else {
-      // 用戶未通過菜單選擇功能，顯示原有提示
+      // 用戶未通過菜單選擇功能，顯示提示
       await client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '收到圖片！請選擇您想要的操作：\n' +
-              '• 圖片風格轉換：輸入您想要的風格描述\n' +
-              '• 圖片增強：輸入「增強」\n' +
-              '• 物件偵測：輸入「偵測」\n' +
-              '• 文字辨識：輸入「辨識」',
-        quickReply: {
-          items: [
-            {
-              type: 'action',
-              action: {
-                type: 'message',
-                label: '風格轉換',
-                text: '圖片風格轉換'
-              }
-            },
-            {
-              type: 'action',
-              action: {
-                type: 'message',
-                label: '圖片增強',
-                text: '圖片增強'
-              }
-            },
-            {
-              type: 'action',
-              action: {
-                type: 'message',
-                label: '物件偵測',
-                text: '物件偵測'
-              }
-            }
-          ]
-        }
+        text: '收到圖片！請在接下來的三分鐘內  自行輸入你想轉換的指令  或是透過選單選擇你想轉換的風格'
       });
       
       userStates.set(userId, {
@@ -570,13 +538,13 @@ async function handleEvent(event) {
     
     return Promise.resolve(null);
   }
-  
+
   // 處理文字消息（用戶未通過菜單選擇功能時）
   if (event.message.type === 'text') {
     const text = event.message.text;
     const userState = userStates.get(userId);
     
-    if (userState && userState.imageId && (Date.now() - userState.timestamp < 300000)) {
+    if (userState && userState.imageId && (Date.now() - userState.timestamp < 180000)) { // 3分鐘 = 180000毫秒
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '正在基於您的圖片和描述生成新圖片，請稍候...'

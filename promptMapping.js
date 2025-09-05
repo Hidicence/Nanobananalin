@@ -10,27 +10,27 @@
 module.exports = {
   // 区域映射
   areas: {
-    'A': '图片变手办',
-    'B': '图片转乐高',
-    'C': '图片转针织玩偶',
-    'D': '人物形象与棚拍照',
+    'A': '图片变模型',
+    'B': '乐高玩具',
+    'C': '针织玩偶',
+    'D': '专业履历照',
     'E': '日系写真',
-    'F': '1970台湾'
+    'F': '1970年'
   },
   
   // 对应的 Prompt
   prompts: {
-    '图片变手办': `生成高畫質場景：將圖片主體轉換為一個1/7比例的PVC公仔，站在透明圓形底座上，擺放於蘋果電腦桌前。螢幕顯示該角色的3D線框專業系統設計圖。公仔造型真實、清晰。桌上有鍵盤、滑鼠，以及同款日系風格的商品包裝盒`,
+    '图片变模型': `生成高畫質場景：將圖片主體轉換為一個1/7比例的PVC公仔，站在透明圓形底座上，擺放於蘋果電腦桌前。螢幕顯示該角色的3D線框專業系統設計圖。公仔造型真實、清晰。桌上有鍵盤、滑鼠，以及同款日系風格的商品包裝盒`,
     
-    '图片转乐高': `Transform the person in the photo into the style of a LEGO minifigure packaging box, presented in an isometric perspective. Label the packaging with the title 'ZHOGUE'. Inside the box, showcase the LEGO minifigure based on the person in the photo, accompanied by their essential items (such as cosmetics, bags, or others) as LEGO accessories. Next to the box, also display the actual LEGO minifigure itself outside of the packaging, rendered in a realistic and lifelike style.`,
+    '乐高玩具': `Transform the person in the photo into the style of a LEGO minifigure packaging box, presented in an isometric perspective. Label the packaging with the title 'ZHOGUE'. Inside the box, showcase the LEGO minifigure based on the person in the photo, accompanied by their essential items (such as cosmetics, bags, or others) as LEGO accessories. Next to the box, also display the actual LEGO minifigure itself outside of the packaging, rendered in a realistic and lifelike style.`,
     
-    '图片转针织玩偶': `A close-up, professionally composed photograph showing a handmade crocheted yarn doll being gently held in both hands. The doll has a rounded shape and an adorable chibi-style appearance, with vivid color contrasts and rich details. The hands holding the doll appear natural and tender, with clearly visible finger posture, and the skin texture and light-shadow transitions look soft and realistic, conveying a warm, tangible touch. The background is slightly blurred, depicting an indoor setting with a warm wooden tabletop and natural light streaming in through a window, creating a cozy and intimate atmosphere. The overall image conveys a sense of exquisite craftsmanship and a cherished, heartwarming emotion.`,
+    '针织玩偶': `A close-up, professionally composed photograph showing a handmade crocheted yarn doll being gently held in both hands. The doll has a rounded shape and an adorable chibi-style appearance, with vivid color contrasts and rich details. The hands holding the doll appear natural and tender, with clearly visible finger posture, and the skin texture and light-shadow transitions look soft and realistic, conveying a warm, tangible touch. The background is slightly blurred, depicting an indoor setting with a warm wooden tabletop and natural light streaming in through a window, creating a cozy and intimate atmosphere. The overall image conveys a sense of exquisite craftsmanship and a cherished, heartwarming emotion.`,
     
-    '人物形象与棚拍照': `生成專業棚拍形象照，穿著黑色西裝，深色背景，適合放在履歷的照片`,
+    '专业履历照': `生成專業棚拍形象照，穿著黑色西裝，深色背景，適合放在履歷的照片`,
     
     '日系写真': `將畫面中的人物做一張日系清新風格，隨機拍攝角度，可為全身或半身構圖。如專業攝影師拍攝的日系寫真作品。`,
     
-    '1970台湾': `Reimagine the person in this photo in the style of Taiwan in the 1970s. This includes clothing, hairstyle, photo quality, and the overall aesthetic of that decade. The output must be a photorealistic image showing the person clearly.`
+    '1970年': `Reimagine the person in this photo in the style of Taiwan in the 1970s. This includes clothing, hairstyle, photo quality, and the overall aesthetic of that decade. The output must be a photorealistic image showing the person clearly.`
   },
   
   // 获取区域对应的 Prompt
