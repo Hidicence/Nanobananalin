@@ -215,7 +215,7 @@ async function generateImageWithPrompt(imageBuffer, text) {
       const choice = response.data.choices[0];
       console.log('OR choice0:', JSON.stringify(choice, null, 2)); // Debug log
       
-      // 使用更健壯的圖片提取函式
+      // 使用更健強的圖片提取函式
       const dataUrl = pickImageDataUrl(choice);
       
       if (dataUrl) {
@@ -245,17 +245,133 @@ async function generateImageWithPrompt(imageBuffer, text) {
 
 const userStates = new Map();
 
+// 添加處理 Postback 事件的函數
+async function handlePostbackEvent(event) {
+  const userId = event.source.userId;
+  const data = event.postback.data;
+  
+  switch (data) {
+    case 'upload_image':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '請上傳一張圖片，我會為您處理。'
+      });
+      
+    case 'style_transfer':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '請先上傳一張圖片，然後告訴我您想要的風格（例如：卡通風格、油畫風格、黑白風格等）。'
+      });
+      
+    case 'image_enhance':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '請上傳一張圖片，我會幫您增強圖片品質。'
+      });
+      
+    case 'object_detection':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '請上傳一張圖片，我會幫您偵測圖片中的物件。'
+      });
+      
+    case 'ocr':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '請上傳一張包含文字的圖片，我會幫您辨識圖片中的文字。'
+      });
+      
+    case 'help':
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '歡迎使用圖片處理機器人！\n\n' +
+              '使用方法：\n' +
+              '1. 點擊「上傳圖片」或直接傳送圖片\n' +
+              '2. 選擇您想要的功能\n' +
+              '3. 輸入相關描述或指令\n\n' +
+              '支援的功能：\n' +
+              '• 圖片風格轉換\n' +
+              '• 圖片增強\n' +
+              '• 物件偵測\n' +
+              '• 文字辨識'
+      });
+  }
+  
+  return Promise.resolve(null);
+}
+
 async function handleEvent(event) {
   if (event.type !== 'message') {
+    // 處理 postback 事件（來自菜單）
+    if (event.type === 'postback') {
+      return handlePostbackEvent(event);
+    }
     return Promise.resolve(null);
   }
 
   const userId = event.source.userId;
   
+  // 處理菜單選項
+  if (event.message.type === 'text') {
+    const text = event.message.text;
+    
+    // 根據菜單選項執行相應操作
+    switch (text) {
+      case '上傳圖片':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請上傳一張圖片，我會為您處理。'
+        });
+        
+      case '圖片風格轉換':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請先上傳一張圖片，然後告訴我您想要的風格（例如：卡通風格、油畫風格、黑白風格等）。'
+        });
+        
+      case '圖片增強':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請上傳一張圖片，我會幫您增強圖片品質。'
+        });
+        
+      case '物件偵測':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請上傳一張圖片，我會幫您偵測圖片中的物件。'
+        });
+        
+      case '文字辨識':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '請上傳一張包含文字的圖片，我會幫您辨識圖片中的文字。'
+        });
+        
+      case '說明':
+        return client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '歡迎使用圖片處理機器人！\n\n' +
+                '使用方法：\n' +
+                '1. 點擊「上傳圖片」或直接傳送圖片\n' +
+                '2. 選擇您想要的功能\n' +
+                '3. 輸入相關描述或指令\n\n' +
+                '支援的功能：\n' +
+                '• 圖片風格轉換\n' +
+                '• 圖片增強\n' +
+                '• 物件偵測\n' +
+                '• 文字辨識'
+        });
+    }
+  }
+  
   if (event.message.type === 'image') {
     await client.replyMessage(event.replyToken, {
       type: 'text',
-      text: '收到圖片！請輸入您想要的修改或創作描述，我會基於這張圖片生成新的圖片。例如：「改成卡通風格」、「加上彩虹背景」等。'
+      text: '收到圖片！請選擇您想要的操作：\n' +
+            '• 圖片風格轉換：輸入您想要的風格描述\n' +
+            '• 圖片增強：輸入「增強」\n' +
+            '• 物件偵測：輸入「偵測」\n' +
+            '• 文字辨識：輸入「辨識」'
     });
     
     userStates.set(userId, {
