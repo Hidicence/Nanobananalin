@@ -3,6 +3,7 @@ const express = require('express');
 const { Client, middleware } = require('@line/bot-sdk');
 const axios = require('axios');
 const FormData = require('form-data');
+const promptMapping = require('./promptMapping');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -250,6 +251,28 @@ async function handlePostbackEvent(event) {
   const userId = event.source.userId;
   const data = event.postback.data;
   
+  // 處理區域按鈕點擊
+  if (data.startsWith('area_')) {
+    const area = data.split('_')[1]; // 提取區域標識 (A, B, C, D, E, F)
+    const functionName = promptMapping.areas[area];
+    const prompt = promptMapping.prompts[functionName];
+    
+    if (functionName && prompt) {
+      // 保存用戶狀態，標記選擇的功能
+      userStates.set(userId, {
+        selectedFunction: functionName,
+        prompt: prompt,
+        timestamp: Date.now()
+      });
+      
+      return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `您選擇了「${functionName}」功能。\n請上傳一張圖片，我會根據您的選擇進行處理。`
+      });
+    }
+  }
+  
+  // 處理原有菜單選項
   switch (data) {
     case 'upload_image':
       return client.replyMessage(event.replyToken, {
@@ -286,14 +309,16 @@ async function handlePostbackEvent(event) {
         type: 'text',
         text: '歡迎使用圖片處理機器人！\n\n' +
               '使用方法：\n' +
-              '1. 點擊「上傳圖片」或直接傳送圖片\n' +
-              '2. 選擇您想要的功能\n' +
-              '3. 輸入相關描述或指令\n\n' +
+              '1. 點擊菜單中的功能按鈕\n' +
+              '2. 上傳圖片\n' +
+              '3. 等待處理結果\n\n' +
               '支援的功能：\n' +
-              '• 圖片風格轉換\n' +
-              '• 圖片增強\n' +
-              '• 物件偵測\n' +
-              '• 文字辨識'
+              '• 圖片變手辦\n' +
+              '• 圖片轉樂高\n' +
+              '• 圖片轉針織玩偶\n' +
+              '• 人物形象與棚拍照\n' +
+              '• 日系寫真\n' +
+              '• 1970台灣風格'
       });
   }
   
@@ -424,56 +449,134 @@ async function handleEvent(event) {
   }
   
   if (event.message.type === 'image') {
-    await client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '收到圖片！請選擇您想要的操作：\n' +
-            '• 圖片風格轉換：輸入您想要的風格描述\n' +
-            '• 圖片增強：輸入「增強」\n' +
-            '• 物件偵測：輸入「偵測」\n' +
-            '• 文字辨識：輸入「辨識」',
-      quickReply: {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '風格轉換',
-              text: '圖片風格轉換'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '圖片增強',
-              text: '圖片增強'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'message',
-              label: '物件偵測',
-              text: '物件偵測'
-            }
-          }
-        ]
-      }
-    });
+    const userState = userStates.get(userId);
     
-    userStates.set(userId, {
-      imageId: event.message.id,
-      timestamp: Date.now()
-    });
+    // 檢查用戶是否已選擇功能
+    if (userState && userState.selectedFunction && userState.prompt) {
+      // 用戶已通過菜單選擇功能
+      const selectedFunction = userState.selectedFunction;
+      const prompt = userState.prompt;
+      
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `正在處理圖片，使用「${selectedFunction}」功能...\n請稍候...`
+      });
+      
+      // 清除用戶狀態
+      userStates.delete(userId);
+      
+      // 處理圖片
+      const imageBuffer = await getImageBuffer(event.message.id);
+      if (imageBuffer) {
+        const result = await generateImageWithPrompt(imageBuffer, prompt);
+        
+        if (result) {
+          // 根據返回的數據類型處理
+          if (result.type === 'url') {
+            // URL 格式的圖片
+            return client.pushMessage(userId, {
+              type: 'image',
+              originalContentUrl: result.data,
+              previewImageUrl: result.data
+            });
+          } else if (result.type === 'buffer') {
+            // 圖像緩衝區 - 需要上傳到公開存儲
+            // 使用 ImgBB（需要 IMGBB_API_KEY）
+            if (process.env.IMGBB_API_KEY) {
+              const imageUrl = await uploadImageToImgBB(result.data);
+              if (imageUrl) {
+                return client.pushMessage(userId, {
+                  type: 'image',
+                  originalContentUrl: imageUrl,
+                  previewImageUrl: imageUrl
+                });
+              }
+            }
+            
+            // 如果 ImgBB 上傳失敗或沒有配置，返回錯誤消息
+            return client.pushMessage(userId, {
+              type: 'text',
+              text: '圖片生成完成，但無法上傳到公開存儲服務。請聯繫管理員配置圖像存儲服務。'
+            });
+          } else if (result.type === 'text') {
+            // 文本格式的結果
+            return client.pushMessage(userId, {
+              type: 'text',
+              text: `生成結果：\n${result.data}`
+            });
+          } else {
+            // 默認處理
+            return client.pushMessage(userId, {
+              type: 'text',
+              text: typeof result === 'string' ? result : '圖片生成完成'
+            });
+          }
+        } else {
+          return client.pushMessage(userId, {
+            type: 'text',
+            text: '圖片生成失敗，請重新上傳圖片或稍後再試。'
+          });
+        }
+      } else {
+        return client.pushMessage(userId, {
+          type: 'text',
+          text: '無法獲取圖片，請重新上傳。'
+        });
+      }
+    } else {
+      // 用戶未通過菜單選擇功能，顯示原有提示
+      await client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '收到圖片！請選擇您想要的操作：\n' +
+              '• 圖片風格轉換：輸入您想要的風格描述\n' +
+              '• 圖片增強：輸入「增強」\n' +
+              '• 物件偵測：輸入「偵測」\n' +
+              '• 文字辨識：輸入「辨識」',
+        quickReply: {
+          items: [
+            {
+              type: 'action',
+              action: {
+                type: 'message',
+                label: '風格轉換',
+                text: '圖片風格轉換'
+              }
+            },
+            {
+              type: 'action',
+              action: {
+                type: 'message',
+                label: '圖片增強',
+                text: '圖片增強'
+              }
+            },
+            {
+              type: 'action',
+              action: {
+                type: 'message',
+                label: '物件偵測',
+                text: '物件偵測'
+              }
+            }
+          ]
+        }
+      });
+      
+      userStates.set(userId, {
+        imageId: event.message.id,
+        timestamp: Date.now()
+      });
+    }
     
     return Promise.resolve(null);
   }
   
+  // 處理文字消息（用戶未通過菜單選擇功能時）
   if (event.message.type === 'text') {
     const text = event.message.text;
     const userState = userStates.get(userId);
     
-    if (userState && (Date.now() - userState.timestamp < 300000)) {
+    if (userState && userState.imageId && (Date.now() - userState.timestamp < 300000)) {
       await client.replyMessage(event.replyToken, {
         type: 'text',
         text: '正在基於您的圖片和描述生成新圖片，請稍候...'

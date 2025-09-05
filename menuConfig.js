@@ -16,8 +16,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "上傳圖片"
+          type: "postback",
+          data: "area_A",
+          label: "圖片變手辦"
         }
       },
       {
@@ -28,8 +29,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "圖片風格轉換"
+          type: "postback",
+          data: "area_B",
+          label: "圖片轉樂高"
         }
       },
       {
@@ -40,8 +42,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "圖片增強"
+          type: "postback",
+          data: "area_C",
+          label: "圖片轉針織玩偶"
         }
       },
       {
@@ -52,8 +55,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "物件偵測"
+          type: "postback",
+          data: "area_D",
+          label: "人物形象與棚拍照"
         }
       },
       {
@@ -64,8 +68,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "文字辨識"
+          type: "postback",
+          data: "area_E",
+          label: "日系寫真"
         }
       },
       {
@@ -76,8 +81,9 @@ module.exports = {
           height: 843
         },
         action: {
-          type: "message",
-          text: "說明"
+          type: "postback",
+          data: "area_F",
+          label: "1970台灣"
         }
       }
     ]
