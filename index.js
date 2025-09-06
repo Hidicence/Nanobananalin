@@ -51,7 +51,7 @@ if (process.env.LINE_PAY_CHANNEL_ID &&
 
 // 用户使用次数跟踪 - 简单的内存存储（实际项目中应使用数据库）
 const userUsage = new Map();
-const DAILY_LIMIT = 1; // 每日免费生成次数
+const DAILY_LIMIT = 3; // 每日免费生成次数
 const GENERATION_COST = 10; // 每次生成费用（台币）
 
 // 获取用户今天的使用次数
